@@ -1,0 +1,16 @@
+{
+  "name": "ai-session-record",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Share one session record across Claude, Copilot, and other terminal AI tools.",
+  "bin": {
+    "session-record": "./bin/session-record.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node test/run.js"
+  },
+  "license": "MIT"
+}
