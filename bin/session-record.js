@@ -16,6 +16,7 @@ const HELP = `Usage:
   session-record snapshot --text <text>
   session-record delete [id-or-number]
   session-record install [--home <dir>]
+  session-record uninstall [--home <dir>] [--records]
   session-record export-shell --result-file <path>
 
 begin asks you to create a record or join one already stored for this project.
@@ -366,6 +367,51 @@ function install(flags) {
   process.stdout.write('Link the command first if it is not on PATH: npm link\n');
 }
 
+function removeLinesContaining(file, snippet) {
+  if (!fs.existsSync(file)) return;
+  const original = fs.readFileSync(file, 'utf8');
+  let next = original
+    .split('\n')
+    .filter((line) => !line.includes(snippet))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^\n+/, '');
+  if (next && !next.endsWith('\n')) next += '\n';
+  if (!next.trim()) fs.rmSync(file);
+  else if (next !== original) fs.writeFileSync(file, next);
+}
+
+function removeMarked(file) {
+  if (!fs.existsSync(file)) return;
+  const original = fs.readFileSync(file, 'utf8');
+  let next = original
+    .replace(/\n?<!-- session-record -->[\s\S]*?<!-- \/session-record -->\n?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^\n+/, '');
+  if (next && !next.endsWith('\n')) next += '\n';
+  if (!next.trim()) fs.rmSync(file);
+  else if (next !== original) fs.writeFileSync(file, next);
+}
+
+function uninstall(flags) {
+  const home = flags.home && flags.home !== true ? path.resolve(flags.home) : os.homedir();
+  const dataHome = path.join(home, '.ai-session-record');
+  removeLinesContaining(path.join(home, '.zshrc'), 'session-record.zsh');
+  for (const profile of powershellProfiles(home)) {
+    removeLinesContaining(profile, 'session-record.ps1');
+  }
+  removeMarked(path.join(home, '.claude', 'CLAUDE.md'));
+  removeMarked(path.join(home, '.copilot', 'copilot-instructions.md'));
+  fs.rmSync(path.join(home, '.cursor', 'skills', 'session-record'), { recursive: true, force: true });
+  if (flags.records) fs.rmSync(dataHome, { recursive: true, force: true });
+  else fs.rmSync(path.join(dataHome, 'shell'), { recursive: true, force: true });
+
+  process.stdout.write(`Uninstalled session-record from ${home}\n`);
+  if (flags.records) process.stdout.write('Deleted saved records.\n');
+  else process.stdout.write(`Saved records are still in ${dataHome}\n`);
+  process.stdout.write('Open a new terminal, then run: npm unlink -g ai-session-record\n');
+}
+
 async function main(argv) {
   const { flags, positionals } = parseArgs(argv);
   const command = positionals[0];
@@ -381,6 +427,7 @@ async function main(argv) {
   if (command === 'delete') return remove(flags, positionals.slice(1));
   if (command === 'snapshot') return snapshot(flags);
   if (command === 'install') return install(flags);
+  if (command === 'uninstall') return uninstall(flags);
   if (command === 'export-shell') return exportShell(flags);
   throw new Error(`Unknown command "${command}".\n${HELP}`);
 }

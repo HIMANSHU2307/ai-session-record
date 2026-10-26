@@ -14,6 +14,11 @@ const projectA = path.join(work, 'alpha');
 const projectB = path.join(work, 'beta');
 fs.mkdirSync(path.join(projectA, 'nested'), { recursive: true });
 fs.mkdirSync(projectB, { recursive: true });
+for (const project of [projectA, projectB]) {
+  fs.mkdirSync(path.join(project, '.git', 'refs', 'heads'), { recursive: true });
+  fs.mkdirSync(path.join(project, '.git', 'objects'), { recursive: true });
+  fs.writeFileSync(path.join(project, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+}
 
 function run(args, options = {}) {
   const result = spawnSync(process.execPath, [bin, ...args], {
@@ -112,9 +117,6 @@ assert.doesNotMatch(betaList.stdout, /auth-refactor/);
 const alphaList = run(['list', '--project', projectA]);
 assert.doesNotMatch(alphaList.stdout, /other-work/);
 
-fs.mkdirSync(path.join(projectA, '.git', 'refs', 'heads'), { recursive: true });
-fs.mkdirSync(path.join(projectA, '.git', 'objects'), { recursive: true });
-fs.writeFileSync(path.join(projectA, '.git', 'HEAD'), 'ref: refs/heads/main\n');
 const gitResult = path.join(work, 'git.json');
 run([
   'begin',
@@ -155,6 +157,27 @@ run(['install', '--home', installHome], { cwd: projectA });
 const zshrc = fs.readFileSync(path.join(installHome, '.zshrc'), 'utf8');
 const sourced = zshrc.split('\n').filter((line) => line.includes('source "$HOME/.ai-session-record/shell/session-record.zsh"'));
 assert.strictEqual(sourced.length, 1);
+
+const zshrcPath = path.join(installHome, '.zshrc');
+const claudePath = path.join(installHome, '.claude', 'CLAUDE.md');
+fs.appendFileSync(zshrcPath, '# keep me\n');
+fs.writeFileSync(claudePath, `# Personal\n\n${fs.readFileSync(claudePath, 'utf8')}`);
+const keptRecord = path.join(installHome, '.ai-session-record', 'projects', 'demo', 'keep.md');
+fs.mkdirSync(path.dirname(keptRecord), { recursive: true });
+fs.writeFileSync(keptRecord, 'stay\n');
+run(['uninstall', '--home', installHome]);
+const zshAfter = fs.readFileSync(zshrcPath, 'utf8');
+assert.match(zshAfter, /# keep me/);
+assert.doesNotMatch(zshAfter, /session-record/);
+assert.match(fs.readFileSync(claudePath, 'utf8'), /# Personal/);
+assert.doesNotMatch(fs.readFileSync(claudePath, 'utf8'), /session-record/);
+assert.ok(!fs.existsSync(path.join(installHome, '.copilot', 'copilot-instructions.md')));
+assert.ok(!fs.existsSync(path.join(installHome, '.cursor', 'skills', 'session-record')));
+assert.ok(!fs.existsSync(path.join(installHome, '.config', 'powershell', 'Microsoft.PowerShell_profile.ps1')));
+assert.ok(!fs.existsSync(path.join(installHome, '.ai-session-record', 'shell')));
+assert.strictEqual(fs.readFileSync(keptRecord, 'utf8'), 'stay\n');
+run(['uninstall', '--home', installHome, '--records']);
+assert.ok(!fs.existsSync(path.join(installHome, '.ai-session-record')));
 
 run(['begin', '--tool', 'claude', '--choice', 'missing'], { expectError: true });
 

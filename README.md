@@ -63,3 +63,16 @@ session-record delete 1
 ```
 
 `delete` removes that record for the current project from any terminal. Every terminal attached to it is detached. Pass the record id, or the number from `session-record list`. With no argument in a terminal, it shows the same list and lets you choose.
+
+## Uninstall
+
+```bash
+session-record uninstall
+npm unlink -g ai-session-record
+```
+
+Open a new terminal after that. This removes the shell hooks, the Cursor skill, and the Claude and Copilot instruction blocks. Saved records stay in `~/.ai-session-record`. Add `--records` to delete those too:
+
+```bash
+session-record uninstall --records
+```
